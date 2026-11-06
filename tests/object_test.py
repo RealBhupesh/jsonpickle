@@ -698,6 +698,48 @@ def test_getstate_does_not_recurse_infinitely():
     assert tags.OBJECT in actual
 
 
+@pytest.mark.parametrize(
+    "make_refs,unpicklable", [(False, True), (True, False), (False, False)]
+)
+def test_max_depth_with_repeated_objects(make_refs, unpicklable):
+    """Repeated objects respect max_depth regardless of encounter order"""
+    shared = [1]
+    for obj, expected in (
+        ([[shared], shared], [["[1]"], [1]]),
+        ([shared, [shared]], [[1], ["[1]"]]),
+    ):
+        encoded = jsonpickle.encode(
+            obj, make_refs=make_refs, unpicklable=unpicklable, max_depth=2
+        )
+        assert jsonpickle.decode(encoded) == expected
+
+    shared = {"leaf": [1, 2]}
+    for obj, tree in (
+        ([shared, [shared]], [{"leaf": [1, 2]}, [{"leaf": [1, 2]}]]),
+        ([[shared], shared], [[{"leaf": [1, 2]}], {"leaf": [1, 2]}]),
+    ):
+        # Aliases at different depths must flatten just like independent copies.
+        options = {"make_refs": make_refs, "unpicklable": unpicklable, "max_depth": 3}
+        assert jsonpickle.encode(obj, **options) == jsonpickle.encode(tree, **options)
+
+
+@pytest.mark.parametrize(
+    "make_refs,unpicklable", [(False, True), (True, False), (False, False)]
+)
+@pytest.mark.parametrize("max_depth", [None, 3])
+def test_max_depth_with_self_referencing_object(make_refs, unpicklable, max_depth):
+    """True cycles retain their usual output with and without a depth limit"""
+    obj = Thing("cycle")
+    obj.child = obj
+    expected = {"name": "cycle", "child": repr(obj) if not make_refs else None}
+    if unpicklable:
+        expected[tags.OBJECT] = util.importable_name(Thing)
+    pickler = jsonpickle.pickler.Pickler(
+        make_refs=make_refs, unpicklable=unpicklable, max_depth=max_depth
+    )
+    assert pickler.flatten(obj) == expected
+
+
 def test_defaultdict_roundtrip():
     """Make sure we can handle collections.defaultdict(list)"""
     # setup
