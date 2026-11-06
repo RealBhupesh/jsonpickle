@@ -94,6 +94,9 @@ v5.0.0
     * Fix bug where a compiled bytes regex (e.g. ``re.compile(rb"\d+")``) was decoded
       as a str pattern when ``ujson`` or ``simplejson`` was installed, and failed to
       encode at all with the stdlib ``json`` backend. (+644)
+    * Fix bug where ``max_depth`` output depended on encounter order with
+      ``make_refs=False`` or ``unpicklable=False``: a repeated object reused the
+      value flattened at the first depth it was seen. (#646) (+648)
     * Fix bug where compiled regex objects lost their flags (e.g. ``re.IGNORECASE``)
       when roundtripped through encode/decode. (+607)
     * Fix bug where encoding or decoding objects whose ``__reduce__`` or ``__reduce_ex__``
